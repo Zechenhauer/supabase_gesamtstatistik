@@ -344,26 +344,31 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_yXEueWILvAq-Vm2VfTuYyg_BIQeE1KK';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Feste Zuordnung der Spieler zu ihren Stammteams (wie zuvor eingerichtet)
+    // Feste Zuordnung der Spieler zu ihren Stammteams (1 bis 4)
     const PLAYER_TEAM_MAP = {
+        // 1. Mannschaft
         "Patrick Seitz": "TVK 1", "Tim Siegel": "TVK 1", "Sascha Bien": "TVK 1", "Dominik Helmke": "TVK 1",
         "Stefan Melcher": "TVK 1", "Jan Krabbe": "TVK 1", "Fabio Padovano": "TVK 1", "Dirk Kraus": "TVK 1",
         "Robert Geyer": "TVK 1", "Joel Wielinski": "TVK 1", "Denis Vanzidler": "TVK 1",
         
+        // 2. Mannschaft
         "Florian Weindorf": "TVK 2", "Daniel Simanowitz": "TVK 2", "Danny Voß": "TVK 2", "Markus Elgersma": "TVK 2",
         "Markus Thiele": "TVK 2", "Christian Schreiber": "TVK 2", "Dominik Herz": "TVK 2", "Thomas Franzen": "TVK 2",
         "Philip Möller": "TVK 2", "Holger Weberpold": "TVK 2", "Andre Pogoda": "TVK 2",
         
+        // 3. Mannschaft
         "Jürgen Schützendorf": "TVK 3", "Niklas Weichert": "TVK 3", "Wolfram Senger": "TVK 3", "Ludger Schledorn": "TVK 3",
         "Thomas Kliver": "TVK 3", "Markus Ginsel": "TVK 3", "Andreas Denner": "TVK 3", "Markus Lenz": "TVK 3",
         "Florian Hartwich": "TVK 3", "Michael Müller": "TVK 3", "Lars Neutag": "TVK 3", "Yannick Steffes": "TVK 3",
         "Leon Gerber": "TVK 3", "Gregor Marek": "TVK 3", "Holger Overmeyer": "TVK 3",
         
+        // 4. Mannschaft
         "Britta Roghmans": "TVK 4", "Scott Jonen": "TVK 4", "Björn Mentzen": "TVK 4", "Lars Hufen": "TVK 4",
         "Jesper Neutag": "TVK 4", "Brian Müller": "TVK 4", "Leon Overmann": "TVK 4", "Mark Bock": "TVK 4",
         "Dirk Grunert": "TVK 4", "Friedhelm Schmidt-Cremer": "TVK 4", "Lucas Mentzen": "TVK 4"
     };
 
+    // Exakte Team-Konfiguration mit den von dir in Supabase verwendeten Tabellennamen
     const TEAM_CONFIGS = [
         { name: "TV Kapellen 1", tagClass: "tag-t1", tableSpieltage: "spieltage_t1", tableMatches: "matches_t1", tableScoring: "scoring_stats_t1" },
         { name: "TV Kapellen 2", tagClass: "tag-t2", tableSpieltage: "spieltage_t2", tableMatches: "matches_t2", tableScoring: "scoring_stats_t2" },
@@ -459,13 +464,11 @@
 
             matchesList.forEach(m => {
                 let scoring = (m[source.tableScoring] && m[source.tableScoring].length > 0) ? m[source.tableScoring][0] : {};
-                let endergebnis = m.ergebnis || ""; // Hier nehmen wir an, dass das Match-Ergebnis direkt oder über den Spieltag läuft
+                let endergebnis = m.ergebnis || "";
 
-                // Für den Mannschaftsvergleich (Gesamtsiege pro Spieltag / Begegnung)
                 let matchKey = `${spieltagNum}_${datum}_${gegner}_${m.ergebnis}`;
                 if (!countedMatches.has(matchKey)) {
                     countedMatches.add(matchKey);
-                    // Hier vereinfacht: Wenn das Einzel/Match gewonnene Legs hat
                     let parts = (m.ergebnis || "").split(":");
                     if (parts.length === 2) {
                         let scoreK = parseInt(parts[0]) || 0;
@@ -542,7 +545,7 @@
                     return;
                 }
 
-                // EINZEL-SPIELER & SCORING
+                // EINZEL-SPIELER & SCORING (Mit fester Team-Zuordnung aus PLAYER_TEAM_MAP)
                 if (playerList.length === 1) {
                     let currentShortLegs = [];
                     legsArray.forEach(l => {
@@ -576,6 +579,9 @@
                     }
 
                     let pObj = globalPlayers[pName];
+                    pObj.teamTag = trueTeamTag;
+                    pObj.tagClass = trueTagClass;
+
                     if (isSingleWin) pObj.singleWins += 1;
                     if (isSingleLoss) pObj.singleLosses += 1;
                     
