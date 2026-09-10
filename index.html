@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Kapellen 1919 e.V. — Gesamtstatistik (Supabase Live)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+        margin: 0;
+        padding: 20px 15px;
+    }
+    .container { max-width: 1600px; margin: 0 auto; position: relative; }
+    
+    .app-main-header { text-align: center; margin-bottom: 25px; position: relative; }
+    
+    .app-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 4px;
+    }
+
+    .header-logo {
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        object-fit: contain;
+        border: 2px solid #f59e0b;
+        background: #0f172a;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        padding: 4px;
+        box-sizing: border-box;
+        flex-shrink: 0;
+    }
+
+    .app-main-header h1 {
+        color: #f59e0b; font-size: 28px; font-weight: 900; margin: 0;
+        letter-spacing: 1px; text-transform: none;
+        text-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
+    }
+    .app-main-header .app-subtitle { color: #94a3b8; font-size: 14px; font-weight: 600; margin-top: 4px; letter-spacing: 0.5px; }
+    .app-main-header .app-sync-info { color: #64748b; font-size: 11px; font-weight: 500; margin-top: 6px; letter-spacing: 0.3px; }
+
+    .refresh-btn {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: transparent;
+        border: 1px solid #f59e0b;
+        color: #f59e0b;
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .refresh-btn:hover {
+        background: #f59e0b;
+        color: #0f172a;
+    }
+
+    .search-wrapper {
+        position: sticky; 
+        top: 0;
+        z-index: 100;
+        background-color: #0f172a;
+        padding: 10px 0;
+        margin-bottom: 20px; 
+        display: flex; 
+        gap: 10px; 
+        justify-content: center; 
+        flex-wrap: wrap;
+    }
+    .filter-select-box {
+        padding: 12px 20px; font-size: 14px; font-weight: bold;
+        background-color: #1e293b; color: #f59e0b; border: 2px solid #f59e0b;
+        border-radius: 25px; outline: none; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15); cursor: pointer;
+    }
+    .filter-select-box option { background-color: #0f172a; color: #ffffff; }
+    .search-box-input {
+        width: 100%; max-width: 400px; padding: 12px 24px; font-size: 14px;
+        background-color: #1e293b; color: #ffffff; border: 2px solid #f59e0b;
+        border-radius: 25px; outline: none; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15); text-align: center;
+    }
+
+    .team-overview-card {
+        background-color: #1e293b; border: 2px solid #f59e0b; border-radius: 12px;
+        padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 25px;
+    }
+
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 35px; }
+
+    .premium-card {
+        background-color: #1e293b; border: 2px solid #f59e0b; border-radius: 12px;
+        padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        max-height: 480px; overflow-y: auto; position: relative;
+    }
+
+    .data-table th { 
+        position: sticky; top: 0; background-color: #1e293b; z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.4); color: #94a3b8; 
+        text-align: left; padding: 10px 6px; font-size: 11px; 
+        text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+
+    .premium-card::-webkit-scrollbar, .table-responsive::-webkit-scrollbar { width: 6px; height: 6px; }
+    .premium-card::-webkit-scrollbar-track, .table-responsive::-webkit-scrollbar-track { background: #0f172a; border-radius: 4px; }
+    .premium-card::-webkit-scrollbar-thumb, .table-responsive::-webkit-scrollbar-thumb { background: #f59e0b; border-radius: 4px; }
+
+    .card-header-title { text-align: center; margin-bottom: 12px; }
+    .card-header-title h2 { color: #f59e0b; margin: 0; font-size: 16px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 900; }
+    .card-header-title .subtitle { color: #34d399; font-size: 11px; font-weight: bold; margin-top: 3px; letter-spacing: 0.5px; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    .data-table td { padding: 8px 6px; border-bottom: 1px solid #334155; font-size: 12px; white-space: nowrap; }
+
+    .team-tag {
+        font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px;
+        text-transform: uppercase; display: inline-block; margin-left: 4px; vertical-align: middle;
+    }
+    .tag-t1 { background: #3b82f6; color: #fff; }
+    .tag-t2 { background: #e31b23; color: #FFFFFF; }
+    .tag-t3 { background: #ffea00; color: #000000; }
+    .tag-t4 { background: #10b981; color: #fff; }
+
+    .win-text { color: #4ade80; font-weight: bold; }
+    .draw-text { color: #facc15; font-weight: bold; }
+    .loss-text { color: #f87171; font-weight: bold; }
+    .rate-badge { background-color: #334155; color: #facc15; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+
+    .col-60 { color: #f97316 !important; background-color: rgba(249, 115, 22, 0.1); font-weight: bold; }
+    .col-80 { color: #facc15 !important; background-color: rgba(250, 204, 21, 0.1); font-weight: bold; }
+    .col-100 { color: #4ade80 !important; background-color: rgba(74, 222, 128, 0.1); font-weight: bold; }
+    .col-140 { background-color: rgba(56, 189, 248, 0.1); font-weight: bold; }
+    .badge-140 { background-color: #0284c7; color: #ffffff; padding: 2px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
+    .row-matched { background-color: rgba(245, 158, 11, 0.2) !important; }
+
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.85); display: none;
+        justify-content: center; align-items: center; z-index: 1000; padding: 10px;
+    }
+    .modal-content {
+        background-color: #1e293b; color: #f8fafc; padding: 20px;
+        border-radius: 12px; width: 100%; max-width: 650px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 2px solid #f59e0b;
+        position: relative; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-close {
+        position: absolute; top: 15px; right: 20px; font-size: 1.8rem;
+        cursor: pointer; color: #94a3b8; font-weight: bold; line-height: 1;
+    }
+    .modal-close:hover { color: #f59e0b; }
+    .modal-header-title { color: #f59e0b; margin: 0 0 5px 0; font-size: 18px; text-transform: uppercase; font-weight: 900; }
+    .modal-subtitle { color: #34d399; font-size: 12px; font-weight: bold; margin-bottom: 15px; }
+
+    .modal-sub-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; background: #0f172a; border-radius: 6px; overflow: hidden; }
+    .modal-sub-table th { background-color: #1e293b; color: #f59e0b; font-size: 11px; text-transform: uppercase; padding: 8px; text-align: left; }
+    .modal-sub-table td { padding: 8px; border-bottom: 1px solid #334155; font-size: 12px; color: #f8fafc; }
+
+    @media (max-width: 768px) {
+        body { padding: 12px 8px; }
+        .app-main-header h1 { font-size: 20px; }
+        .header-logo { width: 45px; height: 45px; }
+        .team-overview-card, .premium-card { padding: 12px 8px; }
+        .dashboard-grid { grid-template-columns: 1fr; gap: 15px; }
+        .filter-select-box, .search-box-input { font-size: 12px; padding: 10px 16px; }
+        .hide-on-mobile { display: none; }
+        .show-on-mobile { display: inline-block; }
+        .refresh-btn {
+            position: static;
+            margin: 10px auto 0 auto;
+            display: block;
+        }
+    }
+    @media (min-width: 769px) { .show-on-mobile { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="app-main-header">
+            <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">🔄 Daten aktualisieren</button>
+            
+            <div class="app-title-row">
+                <img src="https://lh3.googleusercontent.com/d/1PB4X2QrrMlaRlajQEWDtJxRP2c6VTsI5" alt="TV Kapellen Logo" class="header-logo">
+                <h1>TV KAPELLEN 1919 e.V.</h1>
+                <img src="https://lh3.googleusercontent.com/d/1PB4X2QrrMlaRlajQEWDtJxRP2c6VTsI5" alt="TV Kapellen Logo" class="header-logo">
+            </div>
+            
+            <div class="app-subtitle">TV Gesamtstatistik — Alle Mannschaften (Supabase Live)</div>
+            <div class="app-sync-info">⚡ Datenpflege & Bereitstellung: Jürgen Schützendorf</div>
+        </div>
+
+        <div class="search-wrapper">
+            <select id="teamFilterSelect" class="filter-select-box" onchange="performLiveSearch()">
+                <option value="ALL">🎯 Alle Mannschaften</option>
+                <option value="TVK 1">TV Kapellen 1</option>
+                <option value="TVK 2">TV Kapellen 2</option>
+                <option value="TVK 3">TV Kapellen 3</option>
+                <option value="TVK 4">TV Kapellen 4</option>
+            </select>
+
+            <input type="text" id="playerSearchInput" class="search-box-input" placeholder="🔍 Spieler / Doppel suchen..." oninput="performLiveSearch()">
+        </div>
+
+        <div id="loadingMessage" style="text-align:center; color:#f59e0b; margin: 20px 0; font-weight: bold;">Lade Daten aller 4 Mannschaften aus Supabase...</div>
+
+        <div class="team-overview-card" id="teamCard" style="display:none;">
+            <div class="card-header-title">
+                <h2>🎯 MANNSCHAFTS-VERGLEICH</h2>
+                <div class="subtitle">GESAMTE SIEGE, UNENTSCHIEDEN & SCORING DER TEAMS</div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>MANNSCHAFT</th>
+                            <th style="text-align: center;" class="win-text">S</th>
+                            <th style="text-align: center;" class="draw-text">U</th>
+                            <th style="text-align: center;" class="loss-text">N</th>
+                            <th style="text-align: center;">QUOTE</th>
+                            <th style="text-align: center; color: #f59e0b;">180er</th>
+                            <th style="text-align: center; color: #34d399;">
+                                <span class="hide-on-mobile">SHORT LEGS</span>
+                                <span class="show-on-mobile">SL</span>
+                            </th>
+                            <th style="text-align: center;" class="col-60">60+</th>
+                            <th style="text-align: center;" class="col-80">80+</th>
+                            <th style="text-align: center;" class="col-100">100+</th>
+                            <th style="text-align: center;" class="col-140">140+</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teamTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" id="statsGrid" style="display:none;">
+            <div class="premium-card">
+                <div class="card-header-title">
+                    <h2>🏆 SAISON-HIGHLIGHTS</h2>
+                    <div class="subtitle">BESTLEISTUNGEN (EINZEL)</div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">#</th>
+                                <th>SPIELER</th>
+                                <th style="text-align: center; color: #f59e0b;">180er</th>
+                                <th style="text-align: center; color: #34d399;">SL</th>
+                                <th style="text-align: center; color: #ec4899;">HF</th>
+                            </tr>
+                        </thead>
+                        <tbody id="highlightsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="premium-card">
+                <div class="card-header-title">
+                    <h2>🎯 SCORING-STATS</h2>
+                    <div class="subtitle">HIGH-SCORES (EINZEL)</div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">#</th>
+                                <th>SPIELER</th>
+                                <th style="text-align: center;" class="col-60">60+</th>
+                                <th style="text-align: center;" class="col-80">80+</th>
+                                <th style="text-align: center;" class="col-100">100+</th>
+                                <th style="text-align: center;" class="col-140">140+</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scoringTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="premium-card">
+                <div class="card-header-title">
+                    <h2>👤 EINZEL-BILANZ</h2>
+                    <div class="subtitle">SIEGE & NIEDERLAGEN (EINZEL)</div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">#</th>
+                                <th>SPIELER</th>
+                                <th style="text-align: center;" class="win-text">S</th>
+                                <th style="text-align: center;" class="loss-text">N</th>
+                                <th style="text-align: center;">QUOTE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="singleWinLossTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="premium-card">
+                <div class="card-header-title">
+                    <h2>👥 DOPPEL-STATISTIK</h2>
+                    <div class="subtitle">ALLE PAARUNGEN (SIEGE, NIEDERLAGEN & QUOTE)</div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">#</th>
+                                <th>DOPPEL-PAARUNG</th>
+                                <th style="text-align: center;" class="win-text">S</th>
+                                <th style="text-align: center;" class="loss-text">N</th>
+                                <th style="text-align: center;">QUOTE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="doublePairingTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Universal Modal für Einzel- & Doppel-Details -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeDetailModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+    const SUPABASE_URL = 'https://lhusylpjnujlqomougmg.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_yXEuEWilVAq-Vm2VfTuYyg_BiQeE...';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Feste Zuordnung der Spieler zu ihren Stammteams (wie zuvor eingerichtet)
+    const PLAYER_TEAM_MAP = {
+        "Patrick Seitz": "TVK 1", "Tim Siegel": "TVK 1", "Sascha Bien": "TVK 1", "Dominik Helmke": "TVK 1",
+        "Stefan Melcher": "TVK 1", "Jan Krabbe": "TVK 1", "Fabio Padovano": "TVK 1", "Dirk Kraus": "TVK 1",
+        "Robert Geyer": "TVK 1", "Joel Wielinski": "TVK 1", "Denis Vanzidler": "TVK 1",
+        
+        "Florian Weindorf": "TVK 2", "Daniel Simanowitz": "TVK 2", "Danny Voß": "TVK 2", "Markus Elgersma": "TVK 2",
+        "Markus Thiele": "TVK 2", "Christian Schreiber": "TVK 2", "Dominik Herz": "TVK 2", "Thomas Franzen": "TVK 2",
+        "Philip Möller": "TVK 2", "Holger Weberpold": "TVK 2", "Andre Pogoda": "TVK 2",
+        
+        "Jürgen Schützendorf": "TVK 3", "Niklas Weichert": "TVK 3", "Wolfram Senger": "TVK 3", "Ludger Schledorn": "TVK 3",
+        "Thomas Kliver": "TVK 3", "Markus Ginsel": "TVK 3", "Andreas Denner": "TVK 3", "Markus Lenz": "TVK 3",
+        "Florian Hartwich": "TVK 3", "Michael Müller": "TVK 3", "Lars Neutag": "TVK 3", "Yannick Steffes": "TVK 3",
+        "Leon Gerber": "TVK 3", "Gregor Marek": "TVK 3", "Holger Overmeyer": "TVK 3",
+        
+        "Britta Roghmans": "TVK 4", "Scott Jonen": "TVK 4", "Björn Mentzen": "TVK 4", "Lars Hufen": "TVK 4",
+        "Jesper Neutag": "TVK 4", "Brian Müller": "TVK 4", "Leon Overmann": "TVK 4", "Mark Bock": "TVK 4",
+        "Dirk Grunert": "TVK 4", "Friedhelm Schmidt-Cremer": "TVK 4", "Lucas Mentzen": "TVK 4"
+    };
+
+    const TEAM_CONFIGS = [
+        { name: "TV Kapellen 1", tagClass: "tag-t1", tableSpieltage: "spieltage", tableMatches: "matches", tableScoring: "scoring_stats" },
+        { name: "TV Kapellen 2", tagClass: "tag-t2", tableSpieltage: "spieltage_t2", tableMatches: "matches_t2", tableScoring: "scoring_stats_t2" },
+        { name: "TV Kapellen 3", tagClass: "tag-t3", tableSpieltage: "spieltage_t3", tableMatches: "matches_t3", tableScoring: "scoring_stats_t3" },
+        { name: "TV Kapellen 4", tagClass: "tag-t4", tableSpieltage: "spieltage_t4", tableMatches: "matches_t4", tableScoring: "scoring_stats_t4" }
+    ];
+
+    document.addEventListener("DOMContentLoaded", fetchAllTeamsData);
+
+    async function refreshData() {
+        const btn = document.getElementById("refreshBtn");
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "⏳ Lade...";
+        }
+
+        document.getElementById("loadingMessage").style.display = "block";
+        document.getElementById("loadingMessage").innerText = "Aktualisiere Daten aller 4 Mannschaften aus Supabase...";
+
+        try {
+            await fetchAllTeamsData();
+            if (btn) {
+                btn.textContent = "✓ Aktualisiert!";
+                setTimeout(() => {
+                    btn.textContent = "🔄 Daten aktualisieren";
+                    btn.disabled = false;
+                }, 2000);
+            }
+        } catch (error) {
+            console.error(error);
+            if (btn) {
+                btn.textContent = "❌ Fehler!";
+                setTimeout(() => {
+                    btn.textContent = "🔄 Daten aktualisieren";
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+    }
+
+    async function fetchAllTeamsData() {
+        let globalPlayers = {};
+        let doublePairings = {};
+        let teamStats = {};
+
+        TEAM_CONFIGS.forEach(t => {
+            teamStats[t.name] = {
+                name: t.name, tagClass: t.tagClass,
+                wins: 0, draws: 0, losses: 0,
+                s180: 0, shortLegsCount: 0, s60: 0, s80: 0, s100: 0, s140: 0
+            };
+        });
+
+        try {
+            for (const cfg of TEAM_CONFIGS) {
+                const { data, error } = await supabaseClient
+                    .from(cfg.tableSpieltage)
+                    .select(`*, ${cfg.tableMatches} (*, ${cfg.tableScoring} (*))`);
+
+                if (error) throw error;
+
+                if (data) {
+                    parseSupabaseTeamData(cfg, data, globalPlayers, doublePairings, teamStats[cfg.name]);
+                }
+            }
+
+            renderTeamOverviewTable(teamStats);
+            renderHighlightsTable(globalPlayers);
+            renderScoringTable(globalPlayers);
+            renderSingleWinLossTable(globalPlayers);
+            renderDoublePairingsTable(doublePairings);
+
+            document.getElementById("loadingMessage").style.display = "none";
+            document.getElementById("teamCard").style.display = "block";
+            document.getElementById("statsGrid").style.display = "grid";
+
+        } catch (error) {
+            console.error(error);
+            document.getElementById("loadingMessage").innerText = "⚠️ Fehler beim Laden der Daten aus Supabase.";
+            throw error;
+        }
+    }
+
+    function parseSupabaseTeamData(source, spieltageData, globalPlayers, doublePairings, teamTotals) {
+        let countedMatches = new Set();
+
+        spieltageData.forEach(st => {
+            let spieltagNum = st.spieltag_nummer ? st.spieltag_nummer.toString() : "";
+            let datum = st.datum || "";
+            let gegner = st.gegner_team || "";
+
+            let matchesList = st[source.tableMatches] || [];
+
+            matchesList.forEach(m => {
+                let scoring = (m[source.tableScoring] && m[source.tableScoring].length > 0) ? m[source.tableScoring][0] : {};
+                let endergebnis = m.ergebnis || ""; // Hier nehmen wir an, dass das Match-Ergebnis direkt oder über den Spieltag läuft
+
+                // Für den Mannschaftsvergleich (Gesamtsiege pro Spieltag / Begegnung)
+                let matchKey = `${spieltagNum}_${datum}_${gegner}_${m.ergebnis}`;
+                if (!countedMatches.has(matchKey)) {
+                    countedMatches.add(matchKey);
+                    // Hier vereinfacht: Wenn das Einzel/Match gewonnene Legs hat
+                    let parts = (m.ergebnis || "").split(":");
+                    if (parts.length === 2) {
+                        let scoreK = parseInt(parts[0]) || 0;
+                        let scoreG = parseInt(parts[1]) || 0;
+                        if (scoreK > scoreG) teamTotals.wins += 1;
+                        else if (scoreK < scoreG) teamTotals.losses += 1;
+                        else teamTotals.draws += 1;
+                    }
+                }
+
+                let spielerKapellen = m.spieler_kapellen || "";
+                if (!spielerKapellen) return;
+
+                let playerList = spielerKapellen.split("/").map(s => s.trim()).filter(s => s !== "");
+                let isDoppel = (m.block_name && m.block_name.toLowerCase().includes("doppel")) || playerList.length >= 2;
+
+                let ergebnisSpiel = m.ergebnis || "";
+                let isSingleWin = false;
+                let isSingleLoss = false;
+
+                if (ergebnisSpiel.includes(":")) {
+                    let parts = ergebnisSpiel.split(":");
+                    let scoreK = parseInt(parts[0]) || 0;
+                    let scoreG = parseInt(parts[1]) || 0;
+                    if (scoreK > scoreG) isSingleWin = true;
+                    else if (scoreK < scoreG) isSingleLoss = true;
+                }
+
+                let s60 = scoring.score_60 || 0;
+                let s80 = scoring.score_80 || 0;
+                let s100 = scoring.score_100 || 0;
+                let s140 = scoring.score_140 || 0;
+                let s180 = scoring.score_180 || 0;
+                let hf = scoring.high_finish || 0;
+
+                let dartsString = m.darts || "";
+                let legsArray = [];
+                if (dartsString) {
+                    dartsString.split(/[,|\/-]/).forEach((d, dIdx) => {
+                        let dNum = parseInt(d.trim());
+                        if (!isNaN(dNum) && dNum > 0) legsArray.push({ legNum: dIdx + 1, darts: dNum });
+                    });
+                }
+
+                // DOPPEL-PAARUNGEN
+                if (isDoppel) {
+                    let pairSorted = [...playerList].sort();
+                    let pairKey = pairSorted.join(" / ");
+
+                    if (!doublePairings[pairKey]) {
+                        doublePairings[pairKey] = {
+                            pairName: pairKey,
+                            teamTag: source.name.replace("TV Kapellen ", "TVK "),
+                            tagClass: source.tagClass,
+                            wins: 0,
+                            losses: 0,
+                            matchesDetail: []
+                        };
+                    }
+                    if (isSingleWin) doublePairings[pairKey].wins += 1;
+                    if (isSingleLoss) doublePairings[pairKey].losses += 1;
+
+                    doublePairings[pairKey].matchesDetail.push({
+                        spieltag: spieltagNum ? `Spieltag ${spieltagNum}` : "Spieltag",
+                        datum: datum || "",
+                        gegner: gegner || "Gegner",
+                        ergebnis: ergebnisSpiel || "—",
+                        avg: m.avg ? m.avg.toFixed(2) : "—",
+                        legs: legsArray,
+                        s60: s60, s80: s80, s100: s100, s140: s140,
+                        s180: s180,
+                        hf: hf > 0 ? hf.toString() : "—"
+                    });
+                    return;
+                }
+
+                // EINZEL-SPIELER & SCORING
+                if (playerList.length === 1) {
+                    let currentShortLegs = [];
+                    legsArray.forEach(l => {
+                        if (l.darts <= 18) currentShortLegs.push(l.darts);
+                    });
+
+                    teamTotals.s180 += s180;
+                    teamTotals.shortLegsCount += currentShortLegs.length;
+                    teamTotals.s60 += s60;
+                    teamTotals.s80 += s80;
+                    teamTotals.s100 += s100;
+                    teamTotals.s140 += s140;
+
+                    let pName = playerList[0];
+                    let trueTeamTag = PLAYER_TEAM_MAP[pName] || source.name.replace("TV Kapellen ", "TVK ");
+                    let trueTagClass = trueTeamTag === "TVK 1" ? "tag-t1" : trueTeamTag === "TVK 2" ? "tag-t2" : trueTeamTag === "TVK 3" ? "tag-t3" : "tag-t4";
+
+                    if (!globalPlayers[pName]) {
+                        globalPlayers[pName] = {
+                            name: pName,
+                            teamTag: trueTeamTag,
+                            tagClass: trueTagClass,
+                            hunderteachtziger: 0,
+                            shortLegsArray: [],
+                            topFinish: 0,
+                            singleWins: 0,
+                            singleLosses: 0,
+                            s60: 0, s80: 0, s100: 0, s140: 0,
+                            matchesDetail: []
+                        };
+                    }
+
+                    let pObj = globalPlayers[pName];
+                    if (isSingleWin) pObj.singleWins += 1;
+                    if (isSingleLoss) pObj.singleLosses += 1;
+                    
+                    pObj.s60 += s60;
+                    pObj.s80 += s80;
+                    pObj.s100 += s100;
+                    pObj.s140 += s140;
+                    pObj.shortLegsArray.push(...currentShortLegs);
+
+                    if (hf > pObj.topFinish) {
+                        pObj.topFinish = hf;
+                    }
+                    pObj.hunderteachtziger += s180;
+
+                    pObj.matchesDetail.push({
+                        spieltag: spieltagNum ? `Spieltag ${spieltagNum}` : "Spieltag",
+                        datum: datum || "",
+                        gegner: gegner || "Gegner",
+                        ergebnis: ergebnisSpiel || "—",
+                        won: isSingleWin,
+                        lost: isSingleLoss
+                    });
+                }
+            });
+        });
+    }
+
+    function renderTeamOverviewTable(teamStats) {
+        let tbody = document.getElementById("teamTableBody");
+        tbody.innerHTML = "";
+
+        Object.values(teamStats).forEach(t => {
+            let total = t.wins + t.draws + t.losses;
+            let rate = total > 0 ? Math.round((t.wins / total) * 100) : 0;
+            let rateDisplay = total > 0 ? `<span class="rate-badge">${rate}%</span>` : '<span style="color:#64748b;">—</span>';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-weight: bold; color: #ffffff;">
+                        ${t.name} <span class="team-tag ${t.tagClass}">STATISTIK</span>
+                    </td>
+                    <td style="text-align: center;" class="win-text">${t.wins}</td>
+                    <td style="text-align: center;" class="draw-text">${t.draws}</td>
+                    <td style="text-align: center;" class="loss-text">${t.losses}</td>
+                    <td style="text-align: center;">${rateDisplay}</td>
+                    <td style="text-align: center; color: #f59e0b; font-weight: bold;">${t.s180}x</td>
+                    <td style="text-align: center; color: #34d399; font-weight: bold;">${t.shortLegsCount}x</td>
+                    <td style="text-align: center;" class="col-60">${t.s60}</td>
+                    <td style="text-align: center;" class="col-80">${t.s80}</td>
+                    <td style="text-align: center;" class="col-100">${t.s100}</td>
+                    <td style="text-align: center;" class="col-140">${t.s140 > 0 ? '<span class="badge-140">'+t.s140+'</span>' : '—'}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function renderHighlightsTable(players) {
+        let sorted = Object.values(players).filter(p => 
+            p.hunderteachtziger > 0 || p.shortLegsArray.length > 0 || p.topFinish > 0
+        ).sort((a, b) => 
+            b.hunderteachtziger - a.hunderteachtziger || 
+            b.shortLegsArray.length - a.shortLegsArray.length || 
+            b.topFinish - a.topFinish
+        );
+
+        let tbody = document.getElementById("highlightsTableBody");
+        tbody.innerHTML = "";
+
+        if (sorted.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Keine Einzel-Highlights vorhanden</td></tr>`;
+            return;
+        }
+
+        sorted.forEach((p, idx) => {
+            let topFinishDisplay = p.topFinish > 0 
+                ? `<span style="background:#ec4899; color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">${p.topFinish}</span>` 
+                : '<span style="color:#64748b;">—</span>';
+
+            let shortLegsDisplay = '<span style="color:#64748b;">—</span>';
+            if (p.shortLegsArray.length > 0) {
+                let sortedSL = [...p.shortLegsArray].sort((a, b) => a - b);
+                shortLegsDisplay = `<span style="color:#34d399; font-weight:bold;">${sortedSL.join(", ")}</span>`;
+            }
+
+            tbody.innerHTML += `
+                <tr class="hl-player-row" data-player-name="${p.name.toLowerCase()}" data-player-team="${p.teamTag}">
+                    <td style="text-align: center; font-weight: bold; color: #f59e0b;">${idx + 1}</td>
+                    <td style="font-weight: bold; color: #ffffff;">
+                        ${p.name} <span class="team-tag ${p.tagClass}">${p.teamTag}</span>
+                    </td>
+                    <td style="text-align: center; color: #f59e0b; font-weight: bold;">${p.hunderteachtziger}x</td>
+                    <td style="text-align: center;">${shortLegsDisplay}</td>
+                    <td style="text-align: center;">${topFinishDisplay}</td>
+                </tr>
+            `;
+        });
+    }
+
+    let globalPlayersData = {};
+    let globalPairingsData = {};
+
+    function renderSingleWinLossTable(players) {
+        globalPlayersData = players;
+        let sorted = Object.values(players).filter(p => (p.singleWins + p.singleLosses) > 0).map(p => {
+            let total = p.singleWins + p.singleLosses;
+            let rate = total > 0 ? Math.round((p.singleWins / total) * 100) : 0;
+            return { ...p, totalMatches: total, winRate: rate };
+        }).sort((a, b) => b.singleWins - a.singleWins || b.winRate - a.winRate || a.singleLosses - b.singleLosses);
+
+        let tbody = document.getElementById("singleWinLossTableBody");
+        tbody.innerHTML = "";
+
+        if (sorted.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Keine Einzel-Spiele vorhanden</td></tr>`;
+            return;
+        }
+
+        sorted.forEach((p, idx) => {
+            let rateDisplay = p.totalMatches > 0 
+                ? `<span class="rate-badge">${p.winRate}%</span>` 
+                : '<span style="color:#64748b;">—</span>';
+
+            tbody.innerHTML += `
+                <tr class="hl-player-row" data-player-name="${p.name.toLowerCase()}" data-player-team="${p.teamTag}" onclick="openPlayerMatchesModal('${p.name}')" style="cursor: pointer;">
+                    <td style="text-align: center; font-weight: bold; color: #f59e0b;">${idx + 1}</td>
+                    <td style="font-weight: bold; color: #ffffff;">
+                        ${p.name} <span class="team-tag ${p.tagClass}">${p.teamTag}</span>
+                    </td>
+                    <td style="text-align: center;" class="win-text">${p.singleWins}</td>
+                    <td style="text-align: center;" class="loss-text">${p.singleLosses}</td>
+                    <td style="text-align: center;">${rateDisplay}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function renderDoublePairingsTable(pairings) {
+        globalPairingsData = pairings;
+        let sorted = Object.values(pairings).map(p => {
+            let total = p.wins + p.losses;
+            let rate = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+            return { ...p, totalMatches: total, winRate: rate };
+        }).sort((a, b) => b.totalMatches - a.totalMatches || b.wins - a.wins || b.winRate - a.winRate);
+
+        let tbody = document.getElementById("doublePairingTableBody");
+        tbody.innerHTML = "";
+
+        if (sorted.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Keine Doppel-Spiele vorhanden</td></tr>`;
+            return;
+        }
+
+        sorted.forEach((p, idx) => {
+            let rateDisplay = p.totalMatches > 0 
+                ? `<span class="rate-badge">${p.winRate}%</span>` 
+                : '<span style="color:#64748b;">—</span>';
+
+            tbody.innerHTML += `
+                <tr class="hl-player-row" data-player-name="${p.pairName.toLowerCase()}" data-player-team="${p.teamTag}" onclick="openDoubleMatchDetailModal('${p.pairName}')" style="cursor: pointer;">
+                    <td style="text-align: center; font-weight: bold; color: #f59e0b;">${idx + 1}</td>
+                    <td style="font-weight: bold; color: #ffffff;">
+                        ${p.pairName} <span class="team-tag ${p.tagClass}">${p.teamTag}</span>
+                    </td>
+                    <td style="text-align: center;" class="win-text">${p.wins}</td>
+                    <td style="text-align: center;" class="loss-text">${p.losses}</td>
+                    <td style="text-align: center;">${rateDisplay}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function renderScoringTable(players) {
+        let sorted = Object.values(players).map(p => ({
+            ...p,
+            totalScoring: p.s60 + p.s80 + p.s100 + p.s140
+        })).filter(p => p.totalScoring > 0).sort((a, b) => b.totalScoring - a.totalScoring || b.s140 - a.s140);
+
+        let tbody = document.getElementById("scoringTableBody");
+        tbody.innerHTML = "";
+
+        if (sorted.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b;">Keine Einzel-Scoring-Daten vorhanden</td></tr>`;
+            return;
+        }
+
+        sorted.forEach((p, idx) => {
+            let display140 = p.s140 > 0 ? `<span class="badge-140">${p.s140}</span>` : '<span style="color:#64748b;">—</span>';
+
+            tbody.innerHTML += `
+                <tr class="hl-player-row" data-player-name="${p.name.toLowerCase()}" data-player-team="${p.teamTag}">
+                    <td style="text-align: center; font-weight: bold; color: #f59e0b;">${idx + 1}</td>
+                    <td style="font-weight: bold; color: #ffffff;">
+                        ${p.name} <span class="team-tag ${p.tagClass}">${p.teamTag}</span>
+                    </td>
+                    <td style="text-align: center;" class="col-60">${p.s60}</td>
+                    <td style="text-align: center;" class="col-80">${p.s80}</td>
+                    <td style="text-align: center;" class="col-100">${p.s100}</td>
+                    <td style="text-align: center;" class="col-140">${display140}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function performLiveSearch() {
+        const nameQuery = document.getElementById('playerSearchInput').value.toLowerCase().trim();
+        const selectedTeam = document.getElementById('teamFilterSelect').value;
+
+        document.querySelectorAll('.hl-player-row').forEach(row => {
+            const playerName = row.getAttribute('data-player-name') || '';
+            const playerTeam = row.getAttribute('data-player-team') || '';
+
+            const matchesName = nameQuery === '' || playerName.includes(nameQuery);
+            const matchesTeam = selectedTeam === 'ALL' || playerTeam === selectedTeam;
+
+            if (matchesName && matchesTeam) {
+                row.style.display = '';
+                if (nameQuery !== '') row.classList.add('row-matched');
+                else row.classList.remove('row-matched');
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function openPlayerMatchesModal(playerName) {
+        const modal = document.getElementById('detailModal');
+        const body = document.getElementById('modalBody');
+        const pData = globalPlayersData[playerName];
+        if (!pData || !pData.matchesDetail || pData.matchesDetail.length === 0) return;
+
+        let rowsHtml = '';
+        pData.matchesDetail.forEach(m => {
+            let bgColor = 'transparent';
+            let textColor = '#f8fafc';
+            let badgeText = m.ergebnis;
+
+            if (m.won) {
+                bgColor = 'rgba(74, 222, 128, 0.15)';
+                textColor = '#4ade80';
+            } else if (m.lost) {
+                bgColor = 'rgba(248, 113, 113, 0.15)';
+                textColor = '#f87171';
+            }
+
+            rowsHtml += `
+                <tr style="background-color: ${bgColor};">
+                    <td style="font-weight: bold; color: #94a3b8;">${m.spieltag} <span style="font-size:10px; color:#64748b;">(${m.datum})</span></td>
+                    <td>vs. <strong style="color: #ffffff;">${m.gegner}</strong></td>
+                    <td style="text-align: right; font-weight: 900; color: ${textColor};">${badgeText}</td>
+                </tr>
+            `;
+        });
+
+        body.innerHTML = `
+            <h2 class="modal-header-title" style="font-size: 16px; margin-bottom: 2px;">${pData.name} — Einzel-Spiele</h2>
+            <div class="modal-subtitle">Übersicht aller gespielten Einzel (${pData.singleWins} Siege / ${pData.singleLosses} Niederlagen)</div>
+
+            <table class="modal-sub-table">
+                <thead>
+                    <tr>
+                        <th>Spieltag</th>
+                        <th>Gegner</th>
+                        <th style="text-align: right;">Ergebnis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        `;
+
+        modal.style.display = 'flex';
+    }
+
+    function openDoubleMatchDetailModal(pairName) {
+        const modal = document.getElementById('detailModal');
+        const body = document.getElementById('modalBody');
+        const pairData = globalPairingsData[pairName];
+        if (!pairData || !pairData.matchesDetail || pairData.matchesDetail.length === 0) return;
+
+        openSingleMatchDetailModalInternal(pairName, 0);
+    }
+
+    function openSingleMatchDetailModalInternal(pairName, matchIndex) {
+        const modal = document.getElementById('detailModal');
+        const body = document.getElementById('modalBody');
+        const pairData = globalPairingsData[pairName];
+        const match = pairData.matchesDetail[matchIndex];
+
+        let legsHtml = '';
+        if (match.legs && match.legs.length > 0) {
+            match.legs.forEach(l => {
+                legsHtml += `<tr><td>Leg ${l.legNum}</td><td style="text-align: right; font-weight: bold; color: #f59e0b;">${l.darts} Darts</td></tr>`;
+            });
+        } else {
+            legsHtml = `<tr><td colspan="2" style="text-align:center; color:#64748b;">Keine Leg-Daten vorhanden</td></tr>`;
+        }
+
+        let switcherHtml = '';
+        if (pairData.matchesDetail.length > 1) {
+            switcherHtml = `<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:8px 12px; border-radius:6px; margin-bottom:12px; border:1px solid #334155; font-size:11px;">
+                <span style="color:#94a3b8;">Spiel ${matchIndex + 1} von ${pairData.matchesDetail.length}</span>
+                <div>`;
+            if (matchIndex > 0) {
+                switcherHtml += `<button onclick="openSingleMatchDetailModalInternal('${pairName}', ${matchIndex - 1})" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:5px;">◀ Vorheriges</button>`;
+            }
+            if (matchIndex < pairData.matchesDetail.length - 1) {
+                switcherHtml += `<button onclick="openSingleMatchDetailModalInternal('${pairName}', ${matchIndex + 1})" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Nächstes ▶</button>`;
+            }
+            switcherHtml += `</div></div>`;
+        }
+
+        body.innerHTML = `
+            ${switcherHtml}
+            <h2 class="modal-header-title" style="font-size: 16px; margin-bottom: 2px;">${pairName} vs. ${match.gegner}</h2>
+            <div class="modal-subtitle">${match.spieltag} (${match.datum})</div>
+
+            <div style="text-align: center; background: #0f172a; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 12px; font-weight: bold; text-transform: uppercase;">Ergebnis:</span>
+                <div style="color: #f59e0b; font-size: 22px; font-weight: 900; margin-top: 2px;">${match.ergebnis}</div>
+            </div>
+
+            <div style="color: #f59e0b; font-size: 13px; font-weight: 900; text-transform: uppercase; margin: 18px 0 8px 0; border-left: 3px solid #f59e0b; padding-left: 8px;">Averages</div>
+            <table class="modal-sub-table">
+                <thead><tr><th>Spieler</th><th style="text-align: right;">3-Dart Avg</th></tr></thead>
+                <tbody>
+                    <tr><td>${pairName}</td><td style="text-align: right; font-weight: bold; color: #f59e0b;">${match.avg}</td></tr>
+                </tbody>
+            </table>
+
+            <div style="color: #f59e0b; font-size: 13px; font-weight: 900; text-transform: uppercase; margin: 18px 0 8px 0; border-left: 3px solid #f59e0b; padding-left: 8px;">Darts Pro Leg</div>
+            <table class="modal-sub-table">
+                <thead><tr><th>Leg</th><th style="text-align: right;">Geworfene Darts</th></tr></thead>
+                <tbody>
+                    ${legsHtml}
+                </tbody>
+            </table>
+
+            <div style="color: #f59e0b; font-size: 13px; font-weight: 900; text-transform: uppercase; margin: 18px 0 8px 0; border-left: 3px solid #f59e0b; padding-left: 8px;">Scoring</div>
+            <table class="modal-sub-table">
+                <thead>
+                    <tr>
+                        <th>Spieler</th>
+                        <th style="text-align: center;">60+</th>
+                        <th style="text-align: center;">80+</th>
+                        <th style="text-align: center;">100+</th>
+                        <th style="text-align: center;">140+</th>
+                        <th style="text-align: center;">180</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${pairName}</td>
+                        <td style="text-align: center;" class="col-60">${match.s60}</td>
+                        <td style="text-align: center;" class="col-80">${match.s80}</td>
+                        <td style="text-align: center;" class="col-100">${match.s100}</td>
+                        <td style="text-align: center;" class="col-140">${match.s140 > 0 ? match.s140 : '—'}</td>
+                        <td style="text-align: center; color: #f59e0b; font-weight: bold;">${match.s180 > 0 ? match.s180 : '—'}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="color: #f59e0b; font-size: 13px; font-weight: 900; text-transform: uppercase; margin: 18px 0 8px 0; border-left: 3px solid #f59e0b; padding-left: 8px;">Highlights Match</div>
+            <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 12px; line-height: 1.6;">
+                <div>🎯 <strong>180er:</strong> ${match.s180 > 0 ? match.s180 + 'x' : '—'}</div>
+                <div>🔥 <strong>High Finish:</strong> ${match.hf !== '—' && match.hf !== '' ? match.hf : '—'}</div>
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detailModal').style.display = 'none';
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('detailModal');
+        if (event.target === modal) closeDetailModal();
+    }
+    </script>
+</body>
+</html>
